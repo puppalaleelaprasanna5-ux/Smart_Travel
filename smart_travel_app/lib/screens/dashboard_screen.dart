@@ -915,10 +915,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: _toggleDebugConsole,
-                        child: Image.asset('assets/logo/travelpilot_logo.png', height: 40, errorBuilder: (ctx, _, __) => const Icon(Icons.flight_takeoff, color: Color(0xFF008080), size: 30)),
-                      ),
+                      Image.asset('assets/logo/travelpilot_logo.png', height: 40, errorBuilder: (ctx, _, __) => const Icon(Icons.flight_takeoff, color: Color(0xFF008080), size: 30)),
                       const SizedBox(width: 8),
                       const Text(
                         'TripPilot',
