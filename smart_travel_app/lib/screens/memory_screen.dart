@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/travel_memory.dart';
 import '../services/smart_travel_agent.dart';
 import '../services/travel_data_service.dart';
+import '../services/api_service.dart';
 
 class MemoryScreen extends StatefulWidget {
   final bool embedded;
