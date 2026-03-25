@@ -9,10 +9,16 @@ import '../models/expense.dart';
 class ApiService {
   static const String _nativeBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000',
+    defaultValue: 'https://smart-travel-ai.vercel.app', // Smart fallback for production
   );
 
   static String get baseUrl => kIsWeb ? '' : _nativeBaseUrl;
+  
+  static String getImageUrl(String? path) {
+    if (path == null) return '';
+    if (path.startsWith('http')) return path;
+    return kIsWeb ? '/$path' : '$_nativeBaseUrl/$path';
+  }
 
   static const Duration _requestTimeout = Duration(seconds: 12);
 

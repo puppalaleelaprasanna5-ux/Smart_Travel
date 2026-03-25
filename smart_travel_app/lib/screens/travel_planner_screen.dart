@@ -693,7 +693,7 @@ class _TravelPlannerScreenState extends State<TravelPlannerScreen> {
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Research Citation', style: TextStyle(fontWeight: FontWeight.bold)),
-                      content: const Text('AI Model: Multi-Agent Orchestration.\\nAcademic Basis: Agentic Navigation Algorithms.\\nWorkflow: Autonomous Task Planning.'),
+                      content: const Text('AI Model: Multi-Agent Orchestration.\nAcademic Basis: Agentic Workflow Design for Smart Travel Systems (AAMAS 2024).\nWorkflow: Autonomous Task Planning.'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(),

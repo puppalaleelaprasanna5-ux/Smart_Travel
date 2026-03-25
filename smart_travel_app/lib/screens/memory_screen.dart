@@ -445,6 +445,22 @@ class _MemoryScreenState extends State<MemoryScreen> {
         );
       }
     }
+    // New: Try fetching from backend if path exists
+    if (item.mediaPath != null && item.mediaPath!.isNotEmpty) {
+      return Image.network(
+        ApiService.getImageUrl(item.mediaPath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
+      );
+    }
+    // New: Try fetching from backend if path exists
+    if (item.mediaPath != null && item.mediaPath!.isNotEmpty) {
+      return Image.network(
+        ApiService.getImageUrl(item.mediaPath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
+      );
+    }
     if (item.mediaBytes != null && item.mediaBytes!.isNotEmpty) {
       return Image.memory(
         base64Decode(item.mediaBytes!),

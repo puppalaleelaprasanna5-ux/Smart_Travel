@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_service.dart';
+
 class SyncService {
-  static const String _baseUrl = 'http://127.0.0.1:8000';
+  static String get _baseUrl => ApiService.baseUrl;
   static const String _syncQueueKey = 'travel_offline_sync_queue';
   
   static final SyncService instance = SyncService._();
