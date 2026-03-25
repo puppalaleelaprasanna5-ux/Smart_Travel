@@ -7,7 +7,12 @@ import 'package:http/http.dart' as http;
 import '../models/expense.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.29.54:8000';
+  static const String _nativeBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
+
+  static String get baseUrl => kIsWeb ? '' : _nativeBaseUrl;
 
   static const Duration _requestTimeout = Duration(seconds: 12);
 
@@ -66,10 +71,6 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> _get(String endpoint) async {
-    if (kIsWeb && demoMode) {
-      return _demoGetResponse(endpoint);
-    }
-
     try {
       final response = await http
           .get(Uri.parse('$baseUrl$endpoint'))
@@ -91,10 +92,6 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> payload,
   ) async {
-    if (kIsWeb && demoMode) {
-      return _demoPostResponse(endpoint, payload);
-    }
-
     try {
       final response = await http
           .post(
@@ -188,14 +185,6 @@ class ApiService {
     String? mediaType,
     int? tripId,
   }) async {
-    if (kIsWeb && demoMode) {
-      return _demoUploadMemoryResponse(
-        description: description,
-        mediaType: mediaType,
-        tripId: tripId,
-      );
-    }
-
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -236,6 +225,9 @@ class ApiService {
 
   String buildMediaUrl(String mediaPath) {
     if (mediaPath.startsWith('http://') || mediaPath.startsWith('https://')) {
+      return mediaPath;
+    }
+    if (baseUrl.isEmpty) {
       return mediaPath;
     }
     return '$baseUrl$mediaPath';

@@ -32,6 +32,12 @@ context_agent = ContextAwarenessAgent()
 expense_agent = ExpenseTrackingAgent()
 reminder_agent = ReminderAgent()
 memory_agent = MemoryAgent()
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOADS_DIR = os.getenv(
+    "UPLOADS_DIR",
+    "/tmp/uploads" if os.getenv("VERCEL") == "1" else os.path.join(BASE_DIR, "uploads"),
+)
+MEMORIES_DIR = os.path.join(UPLOADS_DIR, "memories")
 
 
 def success_response(data: dict, message: str = "") -> dict:
@@ -326,10 +332,10 @@ async def upload_memory_route(
     original_filename = None
 
     if file is not None and file.filename:
-        os.makedirs("uploads/memories", exist_ok=True)
+        os.makedirs(MEMORIES_DIR, exist_ok=True)
         extension = os.path.splitext(file.filename)[1]
         generated_name = f"{uuid4().hex}{extension}"
-        absolute_path = os.path.join("uploads", "memories", generated_name)
+        absolute_path = os.path.join(MEMORIES_DIR, generated_name)
 
         with open(absolute_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
