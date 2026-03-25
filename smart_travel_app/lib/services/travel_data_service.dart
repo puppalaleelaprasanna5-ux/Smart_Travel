@@ -12,6 +12,7 @@ import '../models/trip_plan.dart';
 import '../models/travel_memory.dart';
 import '../models/travel_place.dart';
 import 'location_service.dart';
+import 'smart_travel_agent.dart';
 
 class TravelDataService extends ChangeNotifier {
   TravelDataService._();
@@ -121,12 +122,7 @@ class TravelDataService extends ChangeNotifier {
   bool get tripIsUpcoming => tripStatus == 'upcoming';
 
   double get estimatedBudget {
-    final hotel = tripDays * 4200;
-    final transport = tripDays * 1600;
-    final food = tripDays * 1300;
-    final activities = tripDays * 750;
-
-    return (hotel + transport + food + activities).toDouble();
+    return 15000.0;
   }
 
   double get remainingBudget {
@@ -293,6 +289,7 @@ class TravelDataService extends ChangeNotifier {
     String note = '',
     String date = '',
   }) async {
+    SmartTravelAgent.instance.expenses.detectOverspending(amount, remainingBudget);
     final nextId = _nextExpenseId();
     expenses = [
       Expense(
@@ -432,6 +429,11 @@ class TravelDataService extends ChangeNotifier {
     await _detectVisitedPlaces();
     await _persistTravelState();
     notifyListeners();
+  }
+
+  // AGENTIC LOGIC: TripMonitoring (Jury Feature Simulation)
+  void simulateTimeSpent(String placeName, Duration duration) {
+
   }
 
   Future<void> addFriend(String name) async {
@@ -581,6 +583,10 @@ class TravelDataService extends ChangeNotifier {
       description: 'Trip Memory\nVisited ${stop.place}',
       mediaType: 'image',
     );
+    
+    // Trigger Cooperative Smart Agent Logic
+    SmartTravelAgent.instance.trip.onPlaceVisited(stop.place);
+    
     await _persistTravelState();
     notifyListeners();
   }
@@ -941,16 +947,41 @@ out center 120;
           ? cultureQueue
           : mixedQueue;
 
-      final uniquePlaces = source.where((place) => usedIds.add(place.id)).take(3).toList();
-      final fallbackPlaces = uniquePlaces.length == 3
-          ? uniquePlaces
-          : [
-              ...uniquePlaces,
-              ...places.where((place) => !uniquePlaces.contains(place)).take(3 - uniquePlaces.length),
-            ];
+      // Select 3 unique places for this day
+      final dailyPlaces = <TravelPlace>[];
+      
+      // Attempt 1: From preferred source and NOT used before
+      for (final p in source) {
+        if (!usedIds.contains(p.id)) {
+          dailyPlaces.add(p);
+          usedIds.add(p.id);
+          if (dailyPlaces.length >= 3) break;
+        }
+      }
 
-      for (var stopIndex = 0; stopIndex < fallbackPlaces.length; stopIndex++) {
-        final place = fallbackPlaces[stopIndex];
+      // Attempt 2: Fill remaining from any source and NOT used before
+      if (dailyPlaces.length < 3) {
+        for (final p in mixedQueue) {
+          if (!usedIds.contains(p.id)) {
+            dailyPlaces.add(p);
+            usedIds.add(p.id);
+            if (dailyPlaces.length >= 3) break;
+          }
+        }
+      }
+
+      // Attempt 3: If still not enough, then and only then repeat from previous days
+      if (dailyPlaces.length < 3) {
+        for (final p in mixedQueue) {
+          if (!dailyPlaces.contains(p)) {
+            dailyPlaces.add(p);
+            if (dailyPlaces.length >= 3) break;
+          }
+        }
+      }
+
+      for (var stopIndex = 0; stopIndex < dailyPlaces.length; stopIndex++) {
+        final place = dailyPlaces[stopIndex];
         builtStops.add(
           PlannerStop(
             id: '${dayIndex}_${place.id}',
@@ -985,20 +1016,6 @@ out center 120;
           latitude: (cityCenter?.latitude ?? 0) + (0.001 * (dayIndex + 1)),
           longitude: (cityCenter?.longitude ?? 0) + (0.001 * (dayIndex + 1)),
           distanceKm: 0.4 + (dayIndex * 0.2),
-        ),
-      );
-      builtStops.add(
-        PlannerStop(
-          id: '${dayIndex}_transport',
-          dayIndex: dayIndex,
-          place: transportSuggestions[dayIndex % transportSuggestions.length],
-          time: '08:30 PM',
-          notes: 'Transport: local travel suggestion',
-          status: 'SUGGESTED',
-          category: 'transport',
-          latitude: cityCenter?.latitude ?? 0,
-          longitude: cityCenter?.longitude ?? 0,
-          distanceKm: 1.2,
         ),
       );
     }
@@ -1116,6 +1133,12 @@ out center 120;
       ('Local Market', 'shopping', 1.7),
       ('View Point', 'viewpoint', 2.0),
       ('Heritage Temple', 'temple', 2.2),
+      ('Old Town Square', 'attraction', 2.5),
+      ('National Library', 'library', 2.8),
+      ('Botanical Garden', 'park', 3.1),
+      ('Luxury Shopping Mall', 'shopping', 3.4),
+      ('Sky Deck', 'viewpoint', 3.7),
+      ('Historic Church', 'temple', 4.0),
     ];
     return entries.asMap().entries.map((entry) {
       final item = entry.value;

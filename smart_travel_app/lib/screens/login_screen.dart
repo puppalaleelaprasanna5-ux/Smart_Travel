@@ -69,16 +69,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           end: Alignment.bottomCenter,
                           colors: [Color(0xFFE8F6FF), Color(0xFFF7FBFF)],
                         ),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: const Color(0xFF736AF8),
+                          color: const Color(0xFF4DB6AC), // Stitch Secondary
                           width: 5,
                         ),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 30,
-                            offset: Offset(0, 16),
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -88,11 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 66,
                             height: 66,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0A6594),
-                              borderRadius: BorderRadius.circular(22),
+                              color: const Color(0xFF008080),
+                              borderRadius: BorderRadius.circular(24),
                               boxShadow: const [
                                 BoxShadow(
-                                  color: Color(0x260A6594),
+                                  color: Color(0x26008080),
                                   blurRadius: 18,
                                   offset: Offset(0, 10),
                                 ),
@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0B4F7B),
+                              color: Color(0xFF008080),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -138,9 +138,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 14),
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
@@ -156,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.black.withOpacity(0.16),
                                     ),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(26),
+                                      borderRadius: BorderRadius.circular(24),
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -220,13 +220,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     filled: true,
                                     fillColor: const Color(0xFFE6E7ED),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                      borderRadius: BorderRadius.circular(24),
                                       borderSide: BorderSide.none,
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                      borderRadius: BorderRadius.circular(24),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFF0B6594),
+                                        color: Color(0xFF008080),
                                         width: 1.4,
                                       ),
                                     ),
@@ -249,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       child: const Text(
                                         'Forgot Password?',
                                         style: TextStyle(
-                                          color: Color(0xFF0B6594),
+                                          color: Color(0xFF008080),
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -270,13 +270,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     filled: true,
                                     fillColor: const Color(0xFFE6E7ED),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                      borderRadius: BorderRadius.circular(24),
                                       borderSide: BorderSide.none,
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
+                                      borderRadius: BorderRadius.circular(24),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFF0B6594),
+                                        color: Color(0xFF008080),
                                         width: 1.4,
                                       ),
                                     ),
@@ -301,12 +301,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: ElevatedButton(
                                     onPressed: _login,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0B6594),
+                                      backgroundColor: const Color(0xFF008080),
                                       foregroundColor: Colors.white,
-                                      elevation: 8,
-                                      shadowColor: const Color(0x330B6594),
+                                      elevation: 0,
+                                      shadowColor: Colors.black.withOpacity(0.08),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(28),
+                                        borderRadius: BorderRadius.circular(24),
                                       ),
                                     ),
                                     child: const Text('Log In'),
@@ -325,7 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       TextSpan(
                                         text: 'Create Account',
                                         style: TextStyle(
-                                          color: Color(0xFF0B6594),
+                                          color: Color(0xFF008080),
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),

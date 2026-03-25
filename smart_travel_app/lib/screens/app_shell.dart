@@ -39,11 +39,13 @@ class _AppShellState extends State<AppShell> {
     const TravelPlannerScreen(embedded: true),
     const MemoryScreen(embedded: true),
     const MapScreen(embedded: true),
+    /*
     ProfileScreen(
       userName: widget.userName,
       userEmail: widget.userEmail,
       embedded: true,
     ),
+    */
   ];
 
   void setTab(int index) {
@@ -100,10 +102,12 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.map_outlined),
             label: 'Map',
           ),
+          /*
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
             label: 'Profile',
           ),
+          */
         ],
       ),
     );

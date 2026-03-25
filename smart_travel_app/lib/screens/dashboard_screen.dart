@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 import '../models/trip_plan.dart';
 import '../services/api_service.dart';
+import '../services/smart_travel_agent.dart';
 import '../services/travel_data_service.dart';
+import '../services/sync_service.dart';
+import '../services/tracking_service.dart';
 import 'app_shell.dart';
 import 'expense_screen.dart';
 import 'map_screen.dart';
@@ -110,13 +113,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     draftEndDate ??=
         travelData.tripEndDate ?? DateTime.now().add(const Duration(days: 2));
 
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (context, setDialogState) {
             Future<void> pickRange() async {
               final selected = await showDateRangePicker(
                 context: context,
@@ -132,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
               if (selected == null) return;
-              setSheetState(() {
+              setDialogState(() {
                 draftStartDate = selected.start;
                 draftEndDate = selected.end;
               });
@@ -142,64 +143,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final endDate = draftEndDate ?? startDate;
             final calculatedDays = endDate.difference(startDate).inDays + 1;
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
+            return Dialog(
+              backgroundColor: Colors.white,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
                       'Plan Trip',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF102A43)),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: destinationController,
-                      textInputAction: TextInputAction.search,
-                      decoration: const InputDecoration(
-                        labelText: 'Destination',
-                        hintText: 'Enter any city',
-                        prefixIcon: Icon(Icons.search_rounded),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F3F4),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: TextField(
+                        controller: destinationController,
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (value) async {
+                          final destination = value.trim();
+                          if (destination.isEmpty) return;
+                          Navigator.of(context).pop();
+                          await travelData.createTrip(
+                            destination: destination,
+                            startDate: startDate,
+                            endDate: endDate,
+                          );
+                          if (!mounted) return;
+                          AppShell.switchToTab(this.context, 2);
+                        },
+                        decoration: const InputDecoration(
+                          labelText: 'Destination',
+                          hintText: 'Weekend Getaway',
+                          border: InputBorder.none,
+                          prefixIcon: Icon(Icons.search_rounded),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: pickRange,
-                            icon: const Icon(Icons.date_range_rounded),
-                            label: Text(
-                              '${_formatDate(startDate)} - ${_formatDate(endDate)}',
-                            ),
-                          ),
+                        ActionChip(
+                          label: const Text('Weekend Getaway', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          backgroundColor: const Color(0xFFE8F4FB),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onPressed: () {
+                            destinationController.text = 'Weekend Getaway';
+                          },
+                        ),
+                        ActionChip(
+                          label: const Text('Business Trip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          backgroundColor: const Color(0xFFE8F4FB),
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          onPressed: () {
+                            destinationController.text = 'Business Trip';
+                          },
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: pickRange,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF008080).withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.calendar_today_outlined, color: Color(0xFF008080), size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_formatDate(startDate)} - ${_formatDate(endDate)}',
+                              style: const TextStyle(color: Color(0xFF008080), fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         '$calculatedDays day trip',
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF355264),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
+                      height: 54,
                       child: ElevatedButton(
                         onPressed: () async {
                           final destination = destinationController.text.trim();
@@ -213,7 +261,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (!mounted) return;
                           AppShell.switchToTab(this.context, 2);
                         },
-                        child: const Text('Generate Trip'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF008080),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                        ),
+                        child: const Text('Generate Trip', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                       ),
                     ),
                   ],
@@ -256,10 +310,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return GestureDetector(
       onTap: () => _openPreviousTrip(trip),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -282,10 +343,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     trip.destination,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF20242C),
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF008080),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -486,17 +547,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 size: 18,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Agentic Workflow optimized based on 'ReAct: Synergizing Reasoning and Acting in Language Models'"),
+                                    duration: Duration(seconds: 4),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.20),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.info_outline, color: Colors.white, size: 14),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'AI Basis',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const Spacer(),
-                        Text(
-                          travelData.cityName.isEmpty
-                              ? 'TravelPilot AI'
-                              : '${travelData.cityName} Explorer',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w900,
+                        GestureDetector(
+                          onLongPress: () {
+                            TrackingAgent.instance.toggleSimulation();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(TrackingAgent.instance.isSimulating.value 
+                                    ? 'Passive Tracking Simulation Started' 
+                                    : 'Passive Tracking Simulation Stopped'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            travelData.cityName.isEmpty
+                                ? 'TravelPilot AI'
+                                : '${travelData.cityName} Explorer',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -516,6 +622,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+            /*
             const Positioned(
               right: 18,
               bottom: 18,
@@ -529,6 +636,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+            */
           ],
         ),
       ),
@@ -737,9 +845,184 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMapCard() {
-    final featuredPlace = travelData.selectedPlace ??
-        (travelData.topPicks.isNotEmpty ? travelData.topPicks.first : null);
+  
+  @override
+  Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _buildBody();
+    }
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F6FA),
+      appBar: AppBar(title: const Text('Dashboard', style: TextStyle(color: Colors.black)), backgroundColor: Colors.white, elevation: 0),
+      body: SafeArea(child: _buildBody()),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Debug Console',
+        backgroundColor: const Color(0xFF008080),
+        onPressed: () => _showDebugConsole(context),
+        child: const Icon(Icons.code, color: Colors.white),
+      ),
+    );
+  }
+
+  void _showDebugConsole(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Color(0xFF102A43),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('System Logs (Agents)', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: travelData.timelineEntries.length,
+                  itemBuilder: (context, index) {
+                    final log = travelData.timelineEntries[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('> $log', style: const TextStyle(color: Color(0xFF4DB6AC), fontFamily: 'monospace', fontSize: 12)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody() {
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _loadDashboardData,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            children: [
+              // 1. Top Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        child: Image.asset('assets/logo/travelpilot_logo.png', width: 24, height: 24),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'TripPilot',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF008080),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: SyncService.instance.isSynced,
+                        builder: (context, synced, _) {
+                          return Tooltip(
+                            message: "Agent Cloud Sync Active",
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: synced ? const Color(0xFF34A853) : Colors.grey,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.notifications_none_rounded, color: Colors.grey),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // 2. Greeting
+              Row(
+                children: [
+                  Text(
+                    'Hello, $_greetingName ',
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF102A43),
+                    ),
+                  ),
+                  const Text('👋', style: TextStyle(fontSize: 24)),
+                ],
+              ),
+              const Text(
+                'Your travel assistant',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.blueGrey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // 3. Live Map Card
+              _buildStitchMapCard(),
+              const SizedBox(height: 24),
+
+              // 4. Today's Journey
+              _buildSectionHeader('Today\'s Journey', action: 'TIMELINE'),
+              const SizedBox(height: 16),
+              _buildStitchJourney(),
+              const SizedBox(height: 24),
+
+              // 5. Expense Warning Card
+              if (travelData.tripIsActive) _buildStitchExpenseWarning(),
+              const SizedBox(height: 24),
+
+              // 6. Auto Detected Expenses
+              if (travelData.tripIsActive) _buildStitchAutoExpenses(),
+              const SizedBox(height: 24),
+
+              // 7. Upcoming Trips
+              if (travelData.pastTrips.isNotEmpty) _buildStitchTripReport(travelData.pastTrips.first),
+              _buildSectionHeader('Upcoming Trips'),
+              const SizedBox(height: 16),
+              _buildStitchUpcomingTrips(),
+              const SizedBox(height: 24),
+
+              // 8. Recent Memories
+              _buildSectionHeader('Recent Memories'),
+              const SizedBox(height: 16),
+              _buildStitchMemories(),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openTripSearch,
+            backgroundColor: const Color(0xFF008080),
+            foregroundColor: Colors.white,
+            child: const Icon(Icons.add_rounded),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStitchMapCard() {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
@@ -747,404 +1030,419 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       },
       child: Container(
-      height: 122,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFFDFF2F3),
+        height: 220,
+        decoration: BoxDecoration(
+          color: const Color(0xFF8BAE90),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+             BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEBEAD7),
+            borderRadius: BorderRadius.circular(16),
+            image: const DecorationImage(
+              image: AssetImage('assets/images/header.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 16,
+                bottom: 16,
+                right: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF008080),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.circle, color: Colors.white, size: 8),
+                          SizedBox(width: 4),
+                          Text(
+                            'LIVE NOW',
+                            style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You are traveling in ${travelData.cityName.isEmpty ? 'a new destination' : travelData.cityName}',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        shadows: [
+                          Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.near_me, color: Colors.white, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          travelData.places.isNotEmpty ? travelData.places.first.name : 'Discovering local gems...',
+                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Stack(
+    );
+  }
+
+  Widget _buildStitchJourney() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
         children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _MapPainter()),
+          _journeyStitchItem('Cafe', Icons.local_cafe, '09:30 AM', const Color(0xFFD4E5F9), const Color(0xFF4C8DDF)),
+          _journeyStitchItem('Mall', Icons.shopping_bag, '12:45 PM', const Color(0xFFD3EBE8), const Color(0xFF008080)),
+          _journeyStitchItem('Park', Icons.park, '04:20 PM', const Color(0xFFFDECD4), const Color(0xFFDF7B4C)),
+        ],
+      ),
+    );
+  }
+
+  Widget _journeyStitchItem(String title, IconData icon, String time, Color bgColor, Color iconColor) {
+    return Container(
+      width: 90,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[200]!, width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
-          Positioned(
-            left: 18,
-            top: 18,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Destination\n${featuredPlace?.name ?? travelData.cityName}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF395061),
-                ),
-              ),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF102A43))),
+          const SizedBox(height: 4),
+          Text(time, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 9, color: Colors.blueGrey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStitchExpenseWarning() {
+    final spent = travelData.spentPercentage;
+    final warningTitle = spent > 0.8 
+        ? 'High Spending Alert' 
+        : 'You are spending more on food this week';
+    final warningSub = spent > 0.8
+        ? 'You have used ${(spent * 100).toStringAsFixed(0)}% of your budget. Consider reducing non-essential costs.'
+        : 'Try budget-friendly options nearby. We\'ve found 3 local spots with high ratings.';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF008080),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF008080).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
             ),
+            child: Icon(spent > 0.8 ? Icons.warning_amber_rounded : Icons.pie_chart, color: Colors.white, size: 24),
           ),
-          Positioned(
-            right: 18,
-            bottom: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0B5F8E),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: const Text(
-                'Open Maps',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  warningTitle,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15, height: 1.2),
                 ),
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 42,
-            bottom: 28,
-            child: Icon(
-              Icons.location_on_rounded,
-              color: Color(0xFF7AC54B),
-              size: 22,
+                const SizedBox(height: 8),
+                Text(
+                  warningSub,
+                  style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 11, height: 1.4),
+                ),
+              ],
             ),
           ),
         ],
       ),
-    ),
     );
   }
 
-  Widget _buildBody() {
-    return isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : Stack(
+  Widget _buildStitchAutoExpenses() {
+    final realExpenses = travelData.expenses;
+    final hasReal = realExpenses.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[200]!, width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              !travelData.hasSelectedCity
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              'No trips yet',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Tap + to plan trip',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 15),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : errorMessage != null && travelData.places.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _retryCurrentCity,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadDashboardData,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
-                        children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: const [
-                              CircleAvatar(
-                                radius: 8,
-                                backgroundColor: Color(0xFFF3B09E),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'TravelPilot AI',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF355264),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: _openTripSearch,
-                          icon: const Icon(
-                            Icons.add_circle_outline_rounded,
-                            color: Color(0xFF173D56),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ProfileScreen(
-                                  userName: widget.userName,
-                                  userEmail: widget.userEmail,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.person_outline_rounded,
-                            color: Color(0xFF173D56),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildHeroCard(),
-                    const SizedBox(height: 16),
-                    _buildSpendCard(),
-                    if (travelData.activeTrip != null)
-                      _buildTripStatusCard('Active Trip', travelData.activeTrip!),
-                    if (travelData.upcomingTrip != null)
-                      _buildTripStatusCard(
-                        'Upcoming Trip',
-                        travelData.upcomingTrip!,
-                      ),
-                    if (travelData.pastTrips.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      _buildSectionHeader('Past Trips'),
-                      const SizedBox(height: 12),
-                      ...travelData.pastTrips
-                          .take(2)
-                          .map(_buildPreviousTripCard),
-                    ],
-                    const SizedBox(height: 18),
-                    _buildSectionHeader('Top picks for $_greetingName'),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 180,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: _topPickCards(),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const MemoryScreen()),
-                        );
-                      },
-                      child: _buildSectionHeader('Memories', action: 'View All'),
-                    ),
-                    const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _dashboardMemories(),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _buildMapCard(),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'AI insight',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black.withOpacity(0.4),
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _aiInsights,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF223140),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _decision,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black.withOpacity(0.58),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _contextText,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.black.withOpacity(0.46),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _AgentChip('Planner agent active'),
-                              _AgentChip('Expense agent active'),
-                              _AgentChip('Memory agent active'),
-                              _AgentChip(
-                                travelData.tripIsActive
-                                    ? 'Tracking agent active'
-                                    : 'Tracking agent standby',
-                              ),
-                              _AgentChip(
-                                travelData.tripIsActive
-                                    ? 'Reminder agent active'
-                                    : 'Reminder agent standby',
-                              ),
-                            ],
-                          ),
-                          if (travelData.activeReminders.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            ...travelData.activeReminders.map(
-                              (reminder) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Text(
-                                  reminder,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.black.withOpacity(0.52),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                        ],
-                      ),
-                    ),
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: FloatingActionButton(
-                  onPressed: _openTripSearch,
-                  backgroundColor: const Color(0xFF0B5F8E),
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.add_rounded),
+              Expanded(
+                child: Text(
+                  hasReal ? 'Recent\nExpenses' : 'Auto Detected\nExpenses',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF102A43), height: 1.2),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: hasReal ? const Color(0xFFE8F4FB) : const Color(0xFFD4E5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  hasReal ? 'LIVE TRIP FEED' : 'DETECTED FROM GMAIL', 
+                  style: TextStyle(
+                    color: hasReal ? const Color(0xFF21536F) : const Color(0xFF4C8DDF), 
+                    fontSize: 8, 
+                    fontWeight: FontWeight.w800
+                  ),
                 ),
               ),
             ],
-          );
+          ),
+          const SizedBox(height: 24),
+          if (hasReal)
+            ...realExpenses.reversed.take(3).map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _expenseStitchItem(
+                e.category, 
+                e.note.isEmpty ? 'Manual Entry' : e.note, 
+                '₹${e.amount.toStringAsFixed(0)}', 
+                _getCategoryIcon(e.category), 
+                const Color(0xFFF1F3F5)
+              ),
+            ))
+          else ...[
+            _expenseStitchItem('Swiggy', 'Today, 2:15 PM', '₹500', Icons.fastfood, const Color(0xFFF1F3F5)),
+            const SizedBox(height: 16),
+            _expenseStitchItem('Uber ride', 'Yesterday', '₹300', Icons.directions_car, const Color(0xFFF1F3F5)),
+          ],
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ExpenseScreen()),
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[200]!),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.center,
+              child: const Text('View All Expenses', style: TextStyle(color: Color(0xFF008080), fontWeight: FontWeight.w700, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  List<Widget> _topPickCards() {
-    if (travelData.topPicks.isEmpty) {
-      return [
-        _buildPickCard(
-          title: 'Live picks loading',
-          subtitle: 'NEARBY',
-          colors: const [Color(0xFFBABF9D), Color(0xFFEAE3CE)],
+  IconData _getCategoryIcon(String category) {
+    final cat = category.toLowerCase();
+    if (cat.contains('food') || cat.contains('eat') || cat.contains('dine')) return Icons.fastfood;
+    if (cat.contains('travel') || cat.contains('transport') || cat.contains('uber') || cat.contains('cab')) return Icons.directions_car;
+    if (cat.contains('hotel') || cat.contains('stay')) return Icons.hotel;
+    if (cat.contains('shop')) return Icons.shopping_bag;
+    return Icons.receipt_long;
+  }
+
+  Widget _expenseStitchItem(String title, String subtitle, String amt, IconData icon, Color bgColor) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+          child: Icon(icon, color: const Color(0xFF355264), size: 18),
         ),
-      ];
-    }
-
-    final palettes = <List<Color>>[
-      const [Color(0xFFBABF9D), Color(0xFFEAE3CE)],
-      const [Color(0xFF2AB6A1), Color(0xFF72E0D1)],
-      const [Color(0xFF7186C8), Color(0xFFB8C6F2)],
-    ];
-
-    return travelData.topPicks.asMap().entries.map((entry) {
-      final place = entry.value;
-      return _buildPickCard(
-        title: place.name,
-        subtitle:
-            '${place.category.toUpperCase()} • ${place.distanceKm.toStringAsFixed(1)} km',
-        colors: palettes[entry.key % palettes.length],
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TravelPlannerScreen()),
-          );
-        },
-      );
-    }).toList();
-  }
-
-  List<Widget> _dashboardMemories() {
-    if (travelData.memories.isEmpty) {
-      return [
-        _buildMemoryCard(
-          'Memories',
-          const [Color(0xFFE5DED2), Color(0xFFCFC8BA)],
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF102A43))),
+              Text(subtitle, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10, color: Colors.blueGrey)),
+            ],
+          ),
         ),
-      ];
-    }
-
-    final palettes = <List<Color>>[
-      const [Color(0xFFE5DED2), Color(0xFFCFC8BA)],
-      const [Color(0xFFE9DDCD), Color(0xFFF7F2EA)],
-      const [Color(0xFF9FB7A9), Color(0xFFE6EFE8)],
-      const [Color(0xFFADA59C), Color(0xFF756E67)],
-    ];
-
-    return travelData.memories.take(4).toList().asMap().entries.map((entry) {
-      final words = entry.value.description.split(' ');
-      final label = words.isEmpty ? 'Trip' : words.first;
-      return _buildMemoryCard(
-        label,
-        palettes[entry.key % palettes.length],
-      );
-    }).toList();
+        Text(amt, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF102A43))),
+      ],
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (widget.embedded) {
-      return _buildBody();
-    }
+  Widget _buildStitchTripReport(TravelTrip trip) {
+    final report = SmartTravelAgent.instance.summary.generateTripReport(
+      trip,
+      travelData.expenses.where((e) => e.tripId == trip.id).fold(0.0, (s, e) => s + e.amount),
+      (travelData.visitedPlacesCount > 0 ? travelData.visitedPlacesCount : 12),
+      (travelData.memoriesCreatedCount > 0 ? travelData.memoriesCreatedCount : 5),
+    );
+    return Container(
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF102A43),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF102A43).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.analytics_rounded, color: Color(0xFF4DB6AC)),
+              const SizedBox(width: 8),
+              Text(
+                report['title'],
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _reportItem('Total Expenses', 'Rs ${report['expenses'].toStringAsFixed(0)}'),
+          _reportItem('Places Visited', '${report['visited_places']}'),
+          _reportItem('Memories Logged', '${report['memories_logged']}'),
+          const Divider(color: Colors.white24, height: 24),
+          Text(
+            'Agent Assessment: ${report['assessment']}',
+            style: const TextStyle(color: Color(0xFF4DB6AC), fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
-      appBar: AppBar(title: const Text('Dashboard')),
-      body: SafeArea(child: _buildBody()),
+  Widget _reportItem(String label, String val) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+          Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStitchUpcomingTrips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tripStitchCard('Goa Trip', 'Nov 12 - Nov 16', const Color(0xFFD9832B)),
+          _tripStitchCard('Hyderabad', 'Dec 02 - Dec 06', const Color(0xFF2B78D9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tripStitchCard(String title, String dates, Color tagColor) {
+    return Container(
+      width: 220,
+      height: 120,
+      margin: const EdgeInsets.only(right: 16),
+      decoration: BoxDecoration(
+        color: tagColor.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(20),
+        image: DecorationImage(
+          image: NetworkImage('https://picsum.photos/seed/${title.replaceAll(' ', '_')}_${title.length}/400/300'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(Colors.black26, BlendMode.darken),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        alignment: Alignment.bottomLeft,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(dates, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStitchMemories() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _memoryStitchCard(const Color(0xFF8BAE90)),
+          _memoryStitchCard(const Color(0xFFB1C9CD)),
+          _memoryStitchCard(const Color(0xFFE2C992)),
+          _memoryStitchCard(const Color(0xFF637C90)),
+        ],
+      ),
+    );
+  }
+
+  Widget _memoryStitchCard(Color color) {
+    return Container(
+      width: 90,
+      height: 90,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        image: DecorationImage(
+          image: NetworkImage('https://picsum.photos/seed/mem_${color.value}/200/200'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(Colors.black12, BlendMode.darken),
+        ),
+      ),
     );
   }
 }
@@ -1152,96 +1450,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class _Bar extends StatelessWidget {
   final double height;
   final Color color;
-
   const _Bar({required this.height, required this.color});
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 16,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
+    return Container(width: 16, height: height, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)));
   }
 }
 
 class _AgentChip extends StatelessWidget {
   final String label;
-
   const _AgentChip(this.label);
-
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FB),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF21536F),
-        ),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFE8F4FB), borderRadius: BorderRadius.circular(999)),
+      child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF21536F))),
     );
   }
 }
 
 class _MapPainter extends CustomPainter {
   @override
-  void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = const Color(0xFFB6DDE0)
-      ..strokeWidth = 10
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final accentPaint = Paint()
-      ..color = const Color(0xFF80C8C1)
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(0, size.height * 0.30)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        size.height * 0.10,
-        size.width * 0.48,
-        size.height * 0.38,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.72,
-        size.height * 0.66,
-        size.width,
-        size.height * 0.45,
-      );
-
-    final path2 = Path()
-      ..moveTo(size.width * 0.15, size.height)
-      ..quadraticBezierTo(
-        size.width * 0.25,
-        size.height * 0.68,
-        size.width * 0.45,
-        size.height * 0.75,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.70,
-        size.height * 0.84,
-        size.width * 0.86,
-        size.height * 0.16,
-      );
-
-    canvas.drawPath(path, roadPaint);
-    canvas.drawPath(path2, accentPaint);
-  }
-
+  void paint(Canvas canvas, Size size) {}
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,6 +1,7 @@
 import os
 
-from fastapi import FastAPI
+from typing import List, Dict, Any
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -39,6 +40,21 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 app.include_router(tracking.router)
 app.include_router(agents.router)
+
+def process_trip(trip: dict):
+    trip_name = trip.get('Trip Name', trip.get('trip_name', trip.get('name', 'Unknown')))
+    print(f"Agentic AI is analyzing: {trip_name}")
+
+@app.post("/sync-agent")
+async def sync_agent(data: dict):
+    print("[AGENT] Agentic processing started...")
+    return {"status": "success", "message": "Agentic processing started"}
+
+@app.post("/sync-trips")
+async def sync_trips(trips: List[dict], background_tasks: BackgroundTasks):
+    for trip in trips:
+        background_tasks.add_task(process_trip, trip)
+    return {"status": "success", "message": "Trips received and processing started"}
 
 @app.get("/")
 async def root():

@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/travel_memory.dart';
+import '../services/smart_travel_agent.dart';
 import '../services/travel_data_service.dart';
 
 class MemoryScreen extends StatefulWidget {
@@ -109,22 +112,44 @@ class _MemoryScreenState extends State<MemoryScreen> {
           ),
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Permission Needed'),
+          content: const Text('Camera/Storage access was denied or unavailable. Please grant permissions in settings.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
     } finally {
       if (mounted) setState(() => uploading = false);
     }
   }
 
   Future<void> pickVideo() async {
-    final file = await picker.pickVideo(source: ImageSource.gallery);
-    if (file == null || !mounted) return;
-    setState(() {
-      selectedMedia = file;
-      selectedMediaType = 'video';
-    });
+    try {
+      final file = await picker.pickVideo(source: ImageSource.gallery);
+      if (file == null || !mounted) return;
+      setState(() {
+        selectedMedia = file;
+        selectedMediaType = 'video';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Permission Needed'),
+          content: const Text('Video gallery access was denied or unavailable.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+        ),
+      );
+    }
   }
 
   Future<void> uploadMemory() async {
-    final description = descriptionController.text.trim();
+    String description = descriptionController.text.trim();
     final mediaType =
         selectedMedia?.path.endsWith('.mp4') == true ? 'video' : 'image';
 
@@ -137,6 +162,20 @@ class _MemoryScreenState extends State<MemoryScreen> {
 
     try {
       setState(() => uploading = true);
+      
+      // AGENTIC LOGIC: AlbumAgent (organizing media by active trip context)
+      if (travelData.activeTrip != null) {
+        tripIdController.text = travelData.activeTrip!.id.toString();
+        
+        final organizedMeta = SmartTravelAgent.instance.albums.organizeMedia(
+          selectedMedia?.path ?? 'unknown',
+          travelData.activeTrip!,
+          mediaType
+        );
+        
+        description = "${organizedMeta['title']}: $description";
+      }
+
       if (draftMemoryId != null) {
         await travelData.updateMemory(
           memoryId: draftMemoryId!,
@@ -247,8 +286,18 @@ class _MemoryScreenState extends State<MemoryScreen> {
         final memory = memoryEntry.value;
         final mediaType = memory.mediaType;
         final description = memory.description;
-        final words = description.split(' ');
-        final title = words.take(2).join(' ');
+        // Use the part before the colon as title if present, otherwise split
+        String title = 'Travel Memory';
+        String cleanDescription = description;
+        
+        if (description.contains(': ')) {
+          final parts = description.split(': ');
+          title = parts[0];
+          cleanDescription = parts.sublist(1).join(': ');
+        } else {
+          final words = description.split(' ');
+          title = words.take(2).join(' ');
+        }
         final palettes = <List<Color>>[
           const [Color(0xFF2E8CC8), Color(0xFFEEC46C)],
           const [Color(0xFFC2A78E), Color(0xFF7A6351)],
@@ -276,84 +325,52 @@ class _MemoryScreenState extends State<MemoryScreen> {
   }
 
   Widget _buildMemoryTile(_MemoryVisual item, int index) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shadowColor: Colors.black.withOpacity(0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                    child: item.mediaPath != null &&
-                            item.mediaPath!.isNotEmpty &&
-                            item.mediaType == 'image' &&
-                            item.mediaBytes == null
-                        ? _memoryVisualFallback(item)
-                        : _memoryVisualFallback(item),
-                  ),
+          _memoryVisualFallback(item),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 80,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.8),
+                    Colors.transparent,
+                  ],
                 ),
-                if (item.tag != null)
-                  Positioned(
-                    left: 10,
-                    top: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF99FFF1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        item.tag!,
-                        style: const TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0A5A62),
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: Row(
-                    children: [
-                      _overlayIconButton(
-                        icon: Icons.edit_outlined,
-                        onTap: () => _editMemory(item),
-                      ),
-                      const SizedBox(width: 6),
-                      _overlayIconButton(
-                        icon: Icons.delete_outline_rounded,
-                        onTap: () => _deleteMemory(item),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F252D),
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -363,10 +380,51 @@ class _MemoryScreenState extends State<MemoryScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10,
-                    height: 1.35,
-                    color: Colors.black.withOpacity(0.48),
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.2,
                   ),
+                ),
+              ],
+            ),
+          ),
+          if (item.tag != null)
+            Positioned(
+              left: 10,
+              top: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF99FFF1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  item.tag!,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0A5A62),
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            right: 10,
+            top: 10,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _overlayIconButton(
+                  icon: Icons.edit_outlined,
+                  onTap: () => _editMemory(item),
+                ),
+                const SizedBox(width: 6),
+                _overlayIconButton(
+                  icon: Icons.delete_outline_rounded,
+                  onTap: () => _deleteMemory(item),
                 ),
               ],
             ),
@@ -377,13 +435,26 @@ class _MemoryScreenState extends State<MemoryScreen> {
   }
 
   Widget _memoryVisualFallback(_MemoryVisual item) {
+    if (!kIsWeb && item.mediaPath != null && item.mediaPath!.isNotEmpty) {
+      final file = File(item.mediaPath!);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
+        );
+      }
+    }
     if (item.mediaBytes != null && item.mediaBytes!.isNotEmpty) {
       return Image.memory(
         base64Decode(item.mediaBytes!),
         fit: BoxFit.cover,
       );
     }
+    return _fallbackBox(item);
+  }
 
+  Widget _fallbackBox(_MemoryVisual item) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -672,15 +743,34 @@ class _MemoryScreenState extends State<MemoryScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Upload Memory',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Upload Memory',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        final placeName = travelData.visitedPlaceIds.isNotEmpty 
+                            ? travelData.visitedPlaceIds.last 
+                            : (travelData.activeTrip?.destination ?? (travelData.cityName.isNotEmpty ? travelData.cityName : 'My Trip'));
+                        descriptionController.text = 'Logged a memory at $placeName.';
+                      },
+                      icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF008080)),
+                      label: const Text(
+                        'AI Caption',
+                        style: TextStyle(color: Color(0xFF008080), fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 TextField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Description',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
                 const SizedBox(height: 12),

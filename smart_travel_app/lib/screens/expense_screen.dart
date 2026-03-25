@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/expense.dart';
-import '../services/sms_expense_service.dart';
 import '../services/travel_data_service.dart';
 
 class ExpenseScreen extends StatefulWidget {
@@ -20,12 +19,10 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   final TextEditingController noteController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
   final TravelDataService travelData = TravelDataService.instance;
-  final SmsExpenseService smsExpenseService = SmsExpenseService();
 
   List<Expense> expenses = [];
   bool loading = false;
   bool addingExpense = false;
-  bool importingSms = false;
   String selectedFilter = 'All';
 
   @override
@@ -119,49 +116,6 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
     }
   }
 
-  Future<void> importFromSms() async {
-    try {
-      setState(() => importingSms = true);
-      final result = kIsWeb
-          ? null
-          : await smsExpenseService.syncExpensesFromSms();
-      final importedCount = kIsWeb
-          ? await travelData.importDemoSmsExpenses()
-          : result?.importedExpenses ?? 0;
-
-      if (!mounted) return;
-
-      if (!kIsWeb && result?.error != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(result!.error!)));
-        return;
-      }
-
-      await fetchExpenses();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            kIsWeb
-                ? 'Imported $importedCount demo travel expenses from SMS.'
-                : 'Imported $importedCount expenses from SMS.',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('SMS import failed: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => importingSms = false);
-      }
-    }
-  }
-
   double get totalAmount {
     return expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
   }
@@ -169,6 +123,14 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
   double get remainingAmount => travelData.remainingBudget;
 
   int get spentPercent => (travelData.spentPercentage * 100).round();
+
+  int get daysRemaining {
+    if (travelData.tripEndDate == null) return 1;
+    final diff = travelData.tripEndDate!.difference(DateTime.now()).inDays;
+    return diff >= 0 ? diff + 1 : 1;
+  }
+
+  double get dailySafeSpend => remainingAmount / daysRemaining;
 
   List<Expense> get filteredExpenses {
     if (selectedFilter == 'All') return expenses;
@@ -338,61 +300,26 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F3F7),
-              borderRadius: BorderRadius.circular(21),
-            ),
-            child: Icon(icon, color: const Color(0xFF2F5E7D)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  expense.note.isEmpty ? expense.category : expense.note,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1E2530),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  timeText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.black.withOpacity(0.45),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '₹$amount',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF243342),
-                ),
-              ),
-              const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: chipColor,
                   borderRadius: BorderRadius.circular(999),
@@ -404,6 +331,69 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF29465B),
                   ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4DB6AC).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'AUTO DETECTED',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF008080),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F3F7),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: const Color(0xFF008080)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      expense.note.isEmpty ? expense.category : expense.note,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E2530),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      timeText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black.withOpacity(0.45),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '₹$amount',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF008080),
                 ),
               ),
             ],
@@ -463,72 +453,91 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 ],
               ),
               const SizedBox(height: 14),
-              Text(
-                'Total Spending',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black.withOpacity(0.45),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '₹${totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0B5F8E),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _CurrencyChip('INR', true),
-                  const SizedBox(width: 6),
-                  _CurrencyChip('USD', false),
-                ],
-              ),
-              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Remaining: ₹${remainingAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1F252D),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'Estimated: ₹${travelData.estimatedBudget.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0B5F8E),
-                      ),
+                  borderRadius: BorderRadius.circular(24),
+                  color: const Color(0xFF004D40),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF004D40).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '$spentPercent% used',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.black.withOpacity(0.5),
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total spent',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF80CBC4).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.auto_awesome_rounded, color: Color(0xFF80CBC4), size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'Good standing',
+                                style: TextStyle(
+                                  color: Color(0xFF80CBC4),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '₹${totalAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Remaining', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
+                              Text('₹${remainingAmount.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                        Container(width: 1, height: 30, color: Colors.white.withOpacity(0.2)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Estimated', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11)),
+                              Text('₹${travelData.estimatedBudget.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -586,70 +595,87 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              Visibility(
+                visible: totalAmount > (travelData.estimatedBudget * 0.8),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEAE6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE15555), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFE15555), size: 24),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Expense Agent: Budget threshold exceeded. Suggesting lower-cost activities for the remainder of the trip.',
+                          style: TextStyle(
+                            color: Color(0xFFB02222),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD7FAF1),
-                  borderRadius: BorderRadius.circular(20),
+                   color: Colors.white,
+                   borderRadius: BorderRadius.circular(24),
+                   boxShadow: [
+                     BoxShadow(
+                       color: Colors.black.withOpacity(0.08),
+                       blurRadius: 20,
+                       offset: const Offset(0, 4),
+                     ),
+                   ],
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8BE6D3),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.sms_rounded,
-                        color: Color(0xFF0B5F6D),
-                        size: 18,
-                      ),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 46,
+                          height: 46,
+                          child: CircularProgressIndicator(
+                            value: travelData.estimatedBudget > 0 ? remainingAmount / travelData.estimatedBudget : 0,
+                            backgroundColor: const Color(0xFF4DB6AC).withOpacity(0.2),
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF008080)),
+                            strokeWidth: 4,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          child: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF008080), size: 20),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'New transaction detected',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF27505E),
-                            ),
+                            'Daily Safe Spend',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF008080)),
                           ),
-                          const SizedBox(height: 4),
                           Text(
-                            importingSms
-                                ? 'Scanning messages...'
-                                : 'Import your latest travel-related SMS transactions.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.black.withOpacity(0.55),
-                              fontWeight: FontWeight.w600,
-                            ),
+                            '$daysRemaining day${daysRemaining > 1 ? 's' : ''} remaining',
+                            style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.5)),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      height: 34,
-                      child: ElevatedButton(
-                        onPressed: importingSms ? null : importFromSms,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1EAF8D),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        child: Text(importingSms ? '...' : 'Import SMS'),
-                      ),
+                    Text(
+                      '₹${dailySafeSpend.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF008080)),
                     ),
                   ],
                 ),
@@ -721,7 +747,12 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _showAddExpenseSheet,
-            backgroundColor: const Color(0xFF0B5F8E),
+            backgroundColor: const Color(0xFF008080),
+            elevation: 0,
+            highlightElevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             foregroundColor: Colors.white,
             child: const Icon(Icons.add_rounded),
           ),

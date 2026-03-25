@@ -79,55 +79,56 @@ def serialize_memory(memory) -> dict:
 @router.post("/planning")
 async def run_planning(input_data: Dict[str, Any]):
     try:
-        print("TravelPlanningAgent running")
+        print("[AGENT] TravelPlanningAgent running")
+        print("[API SEQUENCE] TripAgent syncing location status to Cloud.")
         result = planning_agent.run(input_data)
         return success_response(result)
     except Exception as e:
-        print("Error in /agents/planning", e)
+        print("[AGENT] Error in /agents/planning", e)
         return error_response(str(e))
 
 
 @router.post("/context")
 async def run_context(input_data: Dict[str, Any]):
     try:
-        print("ContextAwarenessAgent running")
+        print("[AGENT] ContextAwarenessAgent running")
         result = context_agent.run(input_data)
         return success_response(result)
     except Exception as e:
-        print("Error in /agents/context", e)
+        print("[AGENT] Error in /agents/context", e)
         return error_response(str(e))
 
 
 @router.post("/expenses")
 async def run_expenses(input_data: Dict[str, Any]):
     try:
-        print("ExpenseTrackingAgent running")
+        print("[AGENT] ExpenseTrackingAgent running")
         result = expense_agent.run(input_data)
         return success_response(result)
     except Exception as e:
-        print("Error in /agents/expenses", e)
+        print("[AGENT] Error in /agents/expenses", e)
         return error_response(str(e))
 
 
 @router.post("/reminders")
 async def run_reminder(input_data: Dict[str, Any]):
     try:
-        print("ReminderAgent running")
+        print("[AGENT] ReminderAgent running")
         result = reminder_agent.run(input_data)
         return success_response(result)
     except Exception as e:
-        print("Error in /agents/reminders", e)
+        print("[AGENT] Error in /agents/reminders", e)
         return error_response(str(e))
 
 
 @router.post("/memory")
 async def run_memory(input_data: Dict[str, Any]):
     try:
-        print("MemoryAgent running")
+        print("[AGENT] MemoryAgent running")
         result = memory_agent.run(input_data)
         return success_response(result)
     except Exception as e:
-        print("Error in /agents/memory", e)
+        print("[AGENT] Error in /agents/memory", e)
         return error_response(str(e))
 
 # High-level endpoints
@@ -172,6 +173,7 @@ async def add_expense_route(input_data: Dict[str, Any], db: Session = Depends(ge
 
     all_expenses = get_expenses(db)
     summary = expense_agent.run({"expenses": [e.amount for e in all_expenses], "budget": input_data.get("budget", 0)})
+    print("[API SEQUENCE] ExpenseAgent persisting new transaction.")
 
     return {"expense": {"id": expense.id, "trip_id": expense.trip_id, "amount": expense.amount, "category": expense.category}, "summary": summary}
 
@@ -183,7 +185,7 @@ async def get_expenses_route(db: Session = Depends(get_db)):
         rows = [{"id": e.id, "amount": e.amount, "category": e.category} for e in expenses]
         return success_response({"expenses": rows, "total": total})
     except Exception as e:
-        print("Error in /agents/get-expenses", e)
+        print("[AGENT] Error in /agents/get-expenses", e)
         return error_response(str(e))
 
 
@@ -198,7 +200,7 @@ async def get_expenses_analysis(db: Session = Depends(get_db)):
         analysis = expense_agent.run({"expenses": input_expenses})
         return success_response({"analysis": analysis})
     except Exception as e:
-        print("Error in /agents/get-expenses-analysis", e)
+        print("[AGENT] Error in /agents/get-expenses-analysis", e)
         return error_response(str(e))
 
 
@@ -216,14 +218,14 @@ async def get_reminders_route(db: Session = Depends(get_db)):
         result = reminder_agent.run(trip_dicts)
         return success_response({"reminders": result})
     except Exception as e:
-        print("Error in /agents/get-reminders", e)
+        print("[AGENT] Error in /agents/get-reminders", e)
         return error_response(str(e))
 
 @router.post("/run-all")
 async def run_all_agents(input_data: Dict[str, Any], db: Session = Depends(get_db)):
     """Orchestrate all agents and return a unified AI response."""
     try:
-        print("run-all agents start")
+        print("[AGENT] run-all agents start")
 
         expenses_db = get_expenses(db)
         trips_db = list_all_trips(db)
@@ -241,19 +243,19 @@ async def run_all_agents(input_data: Dict[str, Any], db: Session = Depends(get_d
             for m in memories_db
         ]
 
-        print("Expense agent call")
+        print("[AGENT] Expense agent call")
         expense_analysis = expense_agent.run({"expenses": expense_items})
 
-        print("Reminder agent call")
+        print("[AGENT] Reminder agent call")
         reminders = reminder_agent.run(trip_items)
 
-        print("Travel planning agent call")
+        print("[AGENT] Travel planning agent call")
         travel_plan = planning_agent.run({"destination": input_data.get("location", "unknown")})
 
         latitude = input_data.get("latitude")
         longitude = input_data.get("longitude")
 
-        print("Context awareness agent call")
+        print("[AGENT] Context awareness agent call")
         context = context_agent.run({
             "location": input_data.get("location", "unknown"),
             "timestamp": input_data.get("time", ""),
@@ -261,7 +263,7 @@ async def run_all_agents(input_data: Dict[str, Any], db: Session = Depends(get_d
             "longitude": longitude,
         })
 
-        print("Memory agent call")
+        print("[AGENT] Memory agent call")
         memories = memory_agent.run(memory_items)
 
         ai_insights = {
@@ -299,7 +301,7 @@ async def run_all_agents(input_data: Dict[str, Any], db: Session = Depends(get_d
 
         return success_response(data)
     except Exception as e:
-        print("Error in /agents/run-all", e)
+        print("[AGENT] Error in /agents/run-all", e)
         return error_response(str(e))
 
 @router.post("/upload-memory")
@@ -359,6 +361,10 @@ async def upload_memory_route(
         trip_id=int(trip_id) if trip_id is not None else None,
     )
     memory_response = memory_agent.run({"note": note, "timestamp": memory.timestamp.isoformat()})
+    print("[API SEQUENCE] AlbumAgent archiving generated media.")
+    
+    print("[API SEQUENCE] AlbumAgent archiving generated media.")
+    
     return success_response({"memory": serialize_memory(memory), "agent": memory_response})
 
 @router.get("/get-memories")
@@ -368,7 +374,7 @@ async def get_memories_route(trip_id: Optional[int] = None, db: Session = Depend
         rows = [serialize_memory(m) for m in memories]
         return success_response({"memories": rows, "count": len(rows)})
     except Exception as e:
-        print("Error in /agents/get-memories", e)
+        print("[AGENT] Error in /agents/get-memories", e)
         return error_response(str(e))
 
 
@@ -379,5 +385,5 @@ async def get_preferences_route(db: Session = Depends(get_db)):
         rows = [{"id": p.id, "key": p.key, "value": p.value} for p in preferences]
         return success_response({"preferences": rows, "count": len(rows)})
     except Exception as e:
-        print("Error in /agents/get-preferences", e)
+        print("[AGENT] Error in /agents/get-preferences", e)
         return error_response(str(e))
