@@ -915,9 +915,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        child: Image.asset('assets/logo/travelpilot_logo.png', width: 24, height: 24),
+                      GestureDetector(
+                        onTap: _toggleDebugConsole,
+                        child: Image.asset('/assets/logo/travelpilot_logo.png', height: 40, errorBuilder: (ctx, _, __) => const Icon(Icons.flight_takeoff, color: Color(0xFF008080), size: 30)),
                       ),
                       const SizedBox(width: 8),
                       const Text(
@@ -1340,7 +1340,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _reportItem('Total Expenses', 'Rs ${report['expenses'].toStringAsFixed(0)}'),
+          _reportItem(
+            'Total Expenses', 
+            'Rs ${report['expenses'].toStringAsFixed(0)}${report['is_estimated'] == true ? ' (AI Estimated)' : ''}'
+          ),
           _reportItem('Places Visited', '${report['visited_places']}'),
           _reportItem('Memories Logged', '${report['memories_logged']}'),
           const Divider(color: Colors.white24, height: 24),

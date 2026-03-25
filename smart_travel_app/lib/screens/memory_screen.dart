@@ -445,20 +445,16 @@ class _MemoryScreenState extends State<MemoryScreen> {
         );
       }
     }
-    // New: Try fetching from backend if path exists
+    // Enhanced: Try fetching from backend with Picsum fallback for Demo
     if (item.mediaPath != null && item.mediaPath!.isNotEmpty) {
       return Image.network(
         ApiService.getImageUrl(item.mediaPath),
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
-      );
-    }
-    // New: Try fetching from backend if path exists
-    if (item.mediaPath != null && item.mediaPath!.isNotEmpty) {
-      return Image.network(
-        ApiService.getImageUrl(item.mediaPath),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
+        errorBuilder: (context, error, stackTrace) => Image.network(
+          'https://picsum.photos/seed/${item.id}_mem/400/600',
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, _, __) => _fallbackBox(item),
+        ),
       );
     }
     if (item.mediaBytes != null && item.mediaBytes!.isNotEmpty) {

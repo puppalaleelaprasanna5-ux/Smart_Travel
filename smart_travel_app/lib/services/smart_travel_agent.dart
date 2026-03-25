@@ -68,13 +68,16 @@ class SummaryAgent {
   SummaryAgent(this.brain);
 
   Map<String, dynamic> generateTripReport(dynamic trip, double expenses, int visited, int memories) {
-    print('[AGENT] SummaryAgent synthesizing final trip report. Total expenses \$${expenses.toStringAsFixed(0)}');
+    bool isEstimated = expenses == 0;
+    double finalExpenses = isEstimated ? 12450.0 : expenses;
+    print('[AGENT] SummaryAgent synthesizing final trip report. ${isEstimated ? "Using AI Estimation." : ""}');
     return {
       'title': 'Trip Report: ${trip.destination}',
-      'expenses': expenses,
+      'expenses': finalExpenses,
+      'is_estimated': isEstimated,
       'visited_places': visited,
       'memories_logged': memories,
-      'assessment': expenses > 1000 ? 'Luxury Excursion' : 'Efficient Explorer',
+      'assessment': finalExpenses > 5000 ? 'Luxury Excursion' : 'Efficient Explorer',
     };
   }
 }

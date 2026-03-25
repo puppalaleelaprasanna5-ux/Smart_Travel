@@ -30,6 +30,18 @@
       "destination": "/api/index"
     },
     {
+      "source": "/sync-trips",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/sync-agent",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/index",
+      "destination": "/api/index"
+    },
+    {
       "source": "/redoc",
       "destination": "/api/index"
     },
