@@ -855,49 +855,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(title: const Text('Dashboard', style: TextStyle(color: Colors.black)), backgroundColor: Colors.white, elevation: 0),
       body: SafeArea(child: _buildBody()),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Debug Console',
-        backgroundColor: const Color(0xFF008080),
-        onPressed: () => _showDebugConsole(context),
-        child: const Icon(Icons.code, color: Colors.white),
-      ),
-    );
-  }
-
-  void _showDebugConsole(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Color(0xFF102A43),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('System Logs (Agents)', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: travelData.timelineEntries.length,
-                  itemBuilder: (context, index) {
-                    final log = travelData.timelineEntries[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text('> $log', style: const TextStyle(color: Color(0xFF4DB6AC), fontFamily: 'monospace', fontSize: 12)),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 

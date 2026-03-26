@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -436,16 +435,8 @@ class _MemoryScreenState extends State<MemoryScreen> {
   }
 
   Widget _memoryVisualFallback(_MemoryVisual item) {
-    if (!kIsWeb && item.mediaPath != null && item.mediaPath!.isNotEmpty) {
-      final file = File(item.mediaPath!);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _fallbackBox(item),
-        );
-      }
-    }
+    // Mobile-only local file logic removed for strict Web/Vercel compatibility
+    // In mobile-browser mode, we rely on the backend sync anyway.
     // Enhanced: Try fetching from backend with Picsum fallback for Demo
     if (item.mediaPath != null && item.mediaPath!.isNotEmpty) {
       return Image.network(
